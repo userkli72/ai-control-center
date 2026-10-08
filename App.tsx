@@ -26,6 +26,15 @@ type AgentGroup = {
     agents: string[];
 };
 
+type ConversationSummary = {
+    id: string;
+    date: string;
+    time: string;
+    topic: string;
+    summary: string;
+    agents: string[];
+};
+
 
 // ============================================================
 // GLOBAL AGENT REGISTRY
@@ -145,6 +154,17 @@ const agents: Agent[] = [
         cost: "medium"
     }
 ];
+
+const [
+    conversationsOpen,
+    setConversationsOpen
+] = useState(true);
+
+
+const [
+    conversations,
+    setConversations
+] = useState<ConversationSummary[]>([]);
 
 
 // ============================================================
@@ -361,6 +381,162 @@ function App() {
             }
         );
     }
+	
+	// ========================================================
+	// CONVERSATION PANE
+	// ========================================================
+
+	function renderConversationPane() {
+
+		return (
+
+			<aside
+				className={
+					conversationsOpen
+						? "conversation-pane"
+						: "conversation-pane collapsed"
+				}
+			>
+
+				<div className="conversation-header">
+
+					{conversationsOpen && (
+
+						<span>
+							CONVERSATIONS
+						</span>
+
+					)}
+
+					<button
+						className="conversation-toggle"
+						onClick={() =>
+							setConversationsOpen(
+								current =>
+									!current
+							)
+						}
+					>
+
+						{
+							conversationsOpen
+								? "›"
+								: "‹"
+						}
+
+					</button>
+
+				</div>
+
+
+				{conversationsOpen && (
+
+					<div className="conversation-list">
+
+						{
+							conversations.length === 0
+								? (
+
+									<div className="conversation-empty">
+
+										No conversations yet.
+
+										<br />
+										<br />
+
+										Conversations will
+										appear here as history
+										is created.
+
+									</div>
+
+								)
+								: (
+
+									conversations.map(
+										conversation => (
+
+											<div
+												className="conversation-card"
+												key={
+													conversation.id
+												}
+											>
+
+												<div className="conversation-date">
+
+													{
+														conversation.date
+													}
+
+													{" · "}
+
+													{
+														conversation.time
+													}
+
+												</div>
+
+
+												<div className="conversation-id">
+
+													{
+														conversation.id
+													}
+
+												</div>
+
+
+												<div className="conversation-topic">
+
+													{
+														conversation.topic
+													}
+
+												</div>
+
+
+												<div className="conversation-summary">
+
+													{
+														conversation.summary
+													}
+
+												</div>
+
+
+												<div className="conversation-agents">
+
+													{
+														conversation.agents
+															.map(
+																id =>
+																	id.toUpperCase()
+															)
+															.join(
+																" · "
+															)
+													}
+
+												</div>
+
+											</div>
+
+										)
+									)
+
+								)
+
+						}
+
+					</div>
+
+				)}
+
+			</aside>
+
+		);
+	}
 
 
     // ========================================================
@@ -413,30 +589,60 @@ function App() {
         );
 
 
-        // ----------------------------------------------------
-        // UPDATE SELECTION
-        // ----------------------------------------------------
+		// ----------------------------------------------------
+		// UI REPLACEMENT
+		// ----------------------------------------------------
 
-        setSelectedAgents(
-            parsed.targets
-        );
+		if (
+			parsed.command === "ui-replace"
+		) {
+
+			setSelectedAgents(
+				parsed.targets
+			);
+
+			console.log(
+				"UI REPLACED WITH:",
+				parsed.targets
+			);
+
+			return;
+		}
 
 
-        // ----------------------------------------------------
-        // CURRENTLY CONNECTING /ASK
-        // ----------------------------------------------------
+		// ----------------------------------------------------
+		// UPDATE SELECTION FOR OTHER COMMANDS
+		// ----------------------------------------------------
 
-        if (
-            parsed.command !== "ask"
-        ) {
+		if (
+			parsed.targets.length > 0
+		) {
 
-            alert(
-                `/${parsed.command} is parsed correctly, ` +
-                "but is not connected to the backend yet."
-            );
+			setSelectedAgents(
+				parsed.targets
+			);
+		}
 
-            return;
-        }
+
+		// ----------------------------------------------------
+		// COMMANDS NOT CONNECTED TO BACKEND YET
+		// ----------------------------------------------------
+
+		if (
+			parsed.command !== "ask"
+		) {
+
+			console.log(
+				"PARSED COMMAND:",
+				parsed
+			);
+
+			alert(
+				`/${parsed.command} parsed successfully.`
+			);
+
+			return;
+		}
 
 
         // ----------------------------------------------------
@@ -512,8 +718,20 @@ function App() {
         }
 
 
+        // ----------------------------------------------------
+        // MERGE WAITING STATE
+        // ----------------------------------------------------
+        // Preserve responses from previous requests.
+        // Only the currently requested agents are changed.
+
         setResponses(
-            waitingResponses
+            current => ({
+
+                ...current,
+
+                ...waitingResponses
+
+            })
         );
 
 
@@ -681,8 +899,20 @@ function App() {
             }
 
 
+            // ------------------------------------------------
+            // MERGE FINAL RESPONSES
+            // ------------------------------------------------
+            // Preserve all previous agent responses.
+            // Only agents in this request are updated.
+
             setResponses(
-                finalResponses
+                current => ({
+
+                    ...current,
+
+                    ...finalResponses
+
+                })
             );
 
 
@@ -723,8 +953,19 @@ function App() {
             }
 
 
+            // ------------------------------------------------
+            // MERGE ERROR RESPONSES
+            // ------------------------------------------------
+            // Preserve previous responses from other agents.
+
             setResponses(
-                errorResponses
+                current => ({
+
+                    ...current,
+
+                    ...errorResponses
+
+                })
             );
         }
     }
@@ -1069,175 +1310,66 @@ function App() {
     // ========================================================
     // MAIN UI
     // ========================================================
+	return (
 
-    return (
+		<div className="app">
 
-        <div className="app">
+			{/* ====================================================
+				HEADER
+				==================================================== */}
 
-            {renderSidebar()}
+			<header className="header">
 
+				YOUR EXISTING HEADER CONTENT
 
-            <main className="main">
+			</header>
 
 
-                {/* =================================================
-                    TOP AGENTS — G1
-                ================================================= */}
+			{/* ====================================================
+				THREE-COLUMN WORKSPACE
+				==================================================== */}
 
-                <div className="agent-row top-row">
+			<div className="workspace">
 
-                    {agents
-                        .filter(
-                            agent =>
-                                agent.groupId === "g1"
-                        )
-                        .map(
-                            renderAgent
-                        )}
+				{/* ================================================
+					LEFT AGENT SIDEBAR
+					================================================ */}
 
-                </div>
+				<aside
+					className={
+						sidebarOpen
+							? "sidebar"
+							: "sidebar collapsed"
+					}
+				>
 
+					YOUR EXISTING SIDEBAR CONTENT
 
-                {/* =================================================
-                    CHAT
-                ================================================= */}
+				</aside>
 
-                <section className="chat-panel">
 
+				{/* ================================================
+					CENTER AI CONTROL AREA
+					================================================ */}
 
-                    <div className="chat-header">
+				<main className="main-content">
 
-                        <span>
-                            CHAT
-                        </span>
+					YOUR EXISTING CENTER CONTENT
 
+				</main>
 
-                        <span className="selection-count">
 
-                            {
-                                selectedAgents.length
-                            }
+				{/* ================================================
+					RIGHT CONVERSATION PANE
+					================================================ */}
 
-                            {" agents selected"}
+				{renderConversationPane()}
 
-                        </span>
+			</div>
 
-                    </div>
+		</div>
 
-
-                    <div className="chat-body">
-
-                        {selectedAgents.length === 0 && (
-
-                            <div className="chat-empty">
-
-                                Select one or more agents.
-
-                            </div>
-
-                        )}
-
-
-                        {selectedAgents.length > 0 && (
-
-                            <div className="chat-selected">
-
-                                {selectedAgents.map(
-                                    id => {
-
-                                        const agent =
-                                            getAgent(id);
-
-
-                                        if (!agent) {
-                                            return null;
-                                        }
-
-
-                                        return (
-
-                                            <span
-                                                key={id}
-                                                className="selected-agent-tag"
-                                            >
-
-                                                {
-                                                    agent.id.toUpperCase()
-                                                }
-
-                                                {" "}
-
-                                                {
-                                                    agent.name
-                                                }
-
-                                            </span>
-
-                                        );
-                                    }
-                                )}
-
-                            </div>
-
-                        )}
-
-                    </div>
-
-
-                    <div className="chat-input-area">
-
-
-                        <textarea
-                            value={prompt}
-                            onChange={event =>
-                                setPrompt(
-                                    event.target.value
-                                )
-                            }
-                            placeholder={
-                                "/ask a1,a3\n" +
-                                "what is an electronic circuit"
-                            }
-                        />
-
-
-                        <button
-                            className="run-button"
-                            onClick={
-                                runAgents
-                            }
-                        >
-
-                            RUN
-
-                        </button>
-
-                    </div>
-
-                </section>
-
-
-                {/* =================================================
-                    BOTTOM AGENTS — G2
-                ================================================= */}
-
-                <div className="agent-row bottom-row">
-
-                    {agents
-                        .filter(
-                            agent =>
-                                agent.groupId === "g2"
-                        )
-                        .map(
-                            renderAgent
-                        )}
-
-                </div>
-
-            </main>
-
-        </div>
-    );
+	);
 }
 
 
